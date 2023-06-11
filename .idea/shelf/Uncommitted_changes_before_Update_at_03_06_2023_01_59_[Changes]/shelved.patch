@@ -1,0 +1,376 @@
+Index: app/src/main/java/com/example/esp32/MainActivity.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/src/main/java/com/example/esp32/MainActivity.kt b/app/src/main/java/com/example/esp32/MainActivity.kt
+--- a/app/src/main/java/com/example/esp32/MainActivity.kt	
++++ b/app/src/main/java/com/example/esp32/MainActivity.kt	
+@@ -1,15 +1,18 @@
+ package com.example.esp32
+ 
+ import android.annotation.SuppressLint
++import android.app.AlertDialog
+ import android.app.Dialog
+ import android.app.NotificationChannel
+ import android.app.NotificationManager
+ import android.app.PendingIntent
++import android.app.ProgressDialog
+ import android.content.*
+ import android.graphics.Color
+ import android.graphics.drawable.ColorDrawable
+ import android.os.Build
+ import android.os.Bundle
++import android.os.CountDownTimer
+ import android.os.IBinder
+ import android.util.Log
+ import android.view.Window
+@@ -44,12 +47,17 @@
+     lateinit var save: Button
+     lateinit var picker1: NumberPicker
+     lateinit var espId: String
++    lateinit var newCard: Button
+     lateinit var topicSensorTemperature: String
+     lateinit var topicSensorHumidity: String
+     lateinit var topicFanStatus: String
+     lateinit var topicFanAuto: String
+     lateinit var topicMaxTemperature: String
++    lateinit var topicNewCardGet: String
++    lateinit var topicNewCardStatus: String
+     lateinit var mqttClient: MqttClient
++    var cancelButton: Button? = null
++    var alertDialog: AlertDialog? = null
+ 
+ 
+     private val connection = object : ServiceConnection {
+@@ -121,12 +129,15 @@
+         fanSwitch = findViewById(R.id.fanSwitch)
+         autoFan = findViewById(R.id.autoFan)
+         save = findViewById(R.id.save)
++        newCard = findViewById(R.id.newCard)
+         espId = "esp001" //todo
+         topicFanAuto = "ptcpapesvrwe/"+espId+"/fan/auto"
+         topicFanStatus = "ptcpapesvrwe/"+espId+"/fan/status"
+         topicMaxTemperature = "ptcpapesvrwe/"+espId+"/max/temperature"
+         topicSensorTemperature = "ptcpapesvrwe/"+espId+"/sensor/temperature"
+         topicSensorHumidity = "ptcpapesvrwe/"+espId+"/sensor/humidity"
++        topicNewCardGet = "ptcpapesvrwe/"+espId+"/newCard/get"
++        topicNewCardStatus = "ptcpapesvrwe/"+espId+"/newCard/status"
+         var options = MqttConnectOptions()
+         val broker       = "tcp://broker.emqx.io:1883"
+         val clientId     = "KotlinMQTTClient2"
+@@ -136,7 +147,7 @@
+         options.isAutomaticReconnect = true
+         mqttClient = MqttClient(broker, clientId, persistence)
+         mqttClient.connect(options)
+-        val link = "http://73de-185-219-143-8.ngrok-free.app"
++        val link = "http://09db-150-254-137-15.eu.ngrok.io"
+         var temperatureValue = 18 ;
+         val pendingIntent: PendingIntent
+         val intent = Intent(this, MyService::class.java)
+@@ -149,8 +160,16 @@
+         subscribeTopic(topicSensorHumidity)
+         subscribeTopic(topicFanStatus)
+         subscribeTopic(topicMaxTemperature)
++        subscribeTopic(topicNewCardGet)
+         mqttClient.setCallback(object : MqttCallback {
+             override fun messageArrived(topic: String?, message: MqttMessage?) {
++
++                if (topic.equals(topicNewCardGet)) {
++                    alertDialog?.dismiss()
++                    timer.cancel()
++                    Log.d("MQTT", "test1")
++
++                }
+                 updateUI(topic, message?.let { String(it.payload) })
+                     Log.d("MQTT", "Message arrived on topic $topic: ${message?.payload?.let {
+                         String(
+@@ -251,6 +270,26 @@
+ 
+         }
+ 
++        newCard.setOnClickListener {
++            val alertDialogBuilder = AlertDialog.Builder(this)
++
++            alertDialogBuilder.setTitle("Add new card.")
++            alertDialogBuilder.setMessage("30")
++            alertDialogBuilder.setCancelable(false)
++
++            alertDialogBuilder.setNegativeButton("Cancel") { dialog, _ ->
++                publishMessage(topicNewCardStatus, "off")
++                dialog.dismiss()
++                timer.cancel()
++            }
++            publishMessage(topicNewCardStatus, "on")
++            alertDialog = alertDialogBuilder.create()
++            alertDialog?.show()
++            cancelButton = alertDialog?.getButton(AlertDialog.BUTTON_NEGATIVE)
++
++            timer.start()
++        }
++
+     }
+ 
+     private fun setupLoaderDialog() {
+@@ -261,6 +300,20 @@
+             window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+         }
+     }
++    private val timer = object : CountDownTimer(30000, 1000) {
++        override fun onTick(millisUntilFinished: Long) {
++            alertDialog?.setMessage("Apply the card to the card reader.")
++            alertDialog?.setTitle("Time remaining: " + (millisUntilFinished / 1000).toString())
++        }
++
++        @SuppressLint("SetTextI18n")
++        override fun onFinish() {
++            publishMessage(topicNewCardStatus, "off")
++            alertDialog?.setTitle("Time's up!")
++            cancelButton?.text = "OK"
++            alertDialog?.setMessage("If you applied the card then the process can still be processed!")
++        }
++    }
+ 
+     private fun showLoader() {
+         if (!loaderDialog.isShowing) {
+Index: .idea/deploymentTargetDropDown.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.idea/deploymentTargetDropDown.xml b/.idea/deploymentTargetDropDown.xml
+deleted file mode 100644
+--- a/.idea/deploymentTargetDropDown.xml	
++++ /dev/null	
+@@ -1,17 +0,0 @@
+-<?xml version="1.0" encoding="UTF-8"?>
+-<project version="4">
+-  <component name="deploymentTargetDropDown">
+-    <runningDeviceTargetSelectedWithDropDown>
+-      <Target>
+-        <type value="RUNNING_DEVICE_TARGET" />
+-        <deviceKey>
+-          <Key>
+-            <type value="SERIAL_NUMBER" />
+-            <value value="adb-RFCW11JWBXB-EjkjEU._adb-tls-connect._tcp" />
+-          </Key>
+-        </deviceKey>
+-      </Target>
+-    </runningDeviceTargetSelectedWithDropDown>
+-    <timeTargetWasSelectedWithDropDown value="2023-05-25T13:25:03.101767500Z" />
+-  </component>
+-</project>
+\ No newline at end of file
+Index: .idea/kotlinc.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.idea/kotlinc.xml b/.idea/kotlinc.xml
+new file mode 100644
+--- /dev/null	
++++ b/.idea/kotlinc.xml	
+@@ -0,0 +1,6 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<project version="4">
++  <component name="KotlinJpsPluginSettings">
++    <option name="version" value="1.8.21" />
++  </component>
++</project>
+\ No newline at end of file
+Index: .idea/compiler.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.idea/compiler.xml b/.idea/compiler.xml
+--- a/.idea/compiler.xml	
++++ b/.idea/compiler.xml	
+@@ -1,6 +1,6 @@
+ <?xml version="1.0" encoding="UTF-8"?>
+ <project version="4">
+   <component name="CompilerConfiguration">
+-    <bytecodeTargetLevel target="11" />
++    <bytecodeTargetLevel target="17" />
+   </component>
+ </project>
+\ No newline at end of file
+Index: .idea/misc.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.idea/misc.xml b/.idea/misc.xml
+--- a/.idea/misc.xml	
++++ b/.idea/misc.xml	
+@@ -1,7 +1,6 @@
+-<?xml version="1.0" encoding="UTF-8"?>
+ <project version="4">
+   <component name="ExternalStorageConfigurationManager" enabled="true" />
+-  <component name="ProjectRootManager" version="2" languageLevel="JDK_11" default="true" project-jdk-name="Android Studio default JDK" project-jdk-type="JavaSDK">
++  <component name="ProjectRootManager" version="2" languageLevel="JDK_17" default="true" project-jdk-name="jbr-17" project-jdk-type="JavaSDK">
+     <output url="file://$PROJECT_DIR$/build/classes" />
+   </component>
+   <component name="ProjectType">
+Index: .idea/codeStyles/Project.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.idea/codeStyles/Project.xml b/.idea/codeStyles/Project.xml
+new file mode 100644
+--- /dev/null	
++++ b/.idea/codeStyles/Project.xml	
+@@ -0,0 +1,123 @@
++<component name="ProjectCodeStyleConfiguration">
++  <code_scheme name="Project" version="173">
++    <JetCodeStyleSettings>
++      <option name="CODE_STYLE_DEFAULTS" value="KOTLIN_OFFICIAL" />
++    </JetCodeStyleSettings>
++    <codeStyleSettings language="XML">
++      <option name="FORCE_REARRANGE_MODE" value="1" />
++      <indentOptions>
++        <option name="CONTINUATION_INDENT_SIZE" value="4" />
++      </indentOptions>
++      <arrangement>
++        <rules>
++          <section>
++            <rule>
++              <match>
++                <AND>
++                  <NAME>xmlns:android</NAME>
++                  <XML_ATTRIBUTE />
++                  <XML_NAMESPACE>^$</XML_NAMESPACE>
++                </AND>
++              </match>
++            </rule>
++          </section>
++          <section>
++            <rule>
++              <match>
++                <AND>
++                  <NAME>xmlns:.*</NAME>
++                  <XML_ATTRIBUTE />
++                  <XML_NAMESPACE>^$</XML_NAMESPACE>
++                </AND>
++              </match>
++              <order>BY_NAME</order>
++            </rule>
++          </section>
++          <section>
++            <rule>
++              <match>
++                <AND>
++                  <NAME>.*:id</NAME>
++                  <XML_ATTRIBUTE />
++                  <XML_NAMESPACE>http://schemas.android.com/apk/res/android</XML_NAMESPACE>
++                </AND>
++              </match>
++            </rule>
++          </section>
++          <section>
++            <rule>
++              <match>
++                <AND>
++                  <NAME>.*:name</NAME>
++                  <XML_ATTRIBUTE />
++                  <XML_NAMESPACE>http://schemas.android.com/apk/res/android</XML_NAMESPACE>
++                </AND>
++              </match>
++            </rule>
++          </section>
++          <section>
++            <rule>
++              <match>
++                <AND>
++                  <NAME>name</NAME>
++                  <XML_ATTRIBUTE />
++                  <XML_NAMESPACE>^$</XML_NAMESPACE>
++                </AND>
++              </match>
++            </rule>
++          </section>
++          <section>
++            <rule>
++              <match>
++                <AND>
++                  <NAME>style</NAME>
++                  <XML_ATTRIBUTE />
++                  <XML_NAMESPACE>^$</XML_NAMESPACE>
++                </AND>
++              </match>
++            </rule>
++          </section>
++          <section>
++            <rule>
++              <match>
++                <AND>
++                  <NAME>.*</NAME>
++                  <XML_ATTRIBUTE />
++                  <XML_NAMESPACE>^$</XML_NAMESPACE>
++                </AND>
++              </match>
++              <order>BY_NAME</order>
++            </rule>
++          </section>
++          <section>
++            <rule>
++              <match>
++                <AND>
++                  <NAME>.*</NAME>
++                  <XML_ATTRIBUTE />
++                  <XML_NAMESPACE>http://schemas.android.com/apk/res/android</XML_NAMESPACE>
++                </AND>
++              </match>
++              <order>ANDROID_ATTRIBUTE_ORDER</order>
++            </rule>
++          </section>
++          <section>
++            <rule>
++              <match>
++                <AND>
++                  <NAME>.*</NAME>
++                  <XML_ATTRIBUTE />
++                  <XML_NAMESPACE>.*</XML_NAMESPACE>
++                </AND>
++              </match>
++              <order>BY_NAME</order>
++            </rule>
++          </section>
++        </rules>
++      </arrangement>
++    </codeStyleSettings>
++    <codeStyleSettings language="kotlin">
++      <option name="CODE_STYLE_DEFAULTS" value="KOTLIN_OFFICIAL" />
++    </codeStyleSettings>
++  </code_scheme>
++</component>
+\ No newline at end of file
+Index: .idea/codeStyles/codeStyleConfig.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.idea/codeStyles/codeStyleConfig.xml b/.idea/codeStyles/codeStyleConfig.xml
+new file mode 100644
+--- /dev/null	
++++ b/.idea/codeStyles/codeStyleConfig.xml	
+@@ -0,0 +1,5 @@
++<component name="ProjectCodeStyleConfiguration">
++  <state>
++    <option name="USE_PER_PROJECT_SETTINGS" value="true" />
++  </state>
++</component>
+\ No newline at end of file
+Index: .idea/.name
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.idea/.name b/.idea/.name
+new file mode 100644
+--- /dev/null	
++++ b/.idea/.name	
+@@ -0,0 +1,1 @@
++ESP32
+\ No newline at end of file

@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">ESP32</string>
+    <string name="channel_name">Test</string>
+    <string name="channel_description">Test opis</string>
+</resources>
